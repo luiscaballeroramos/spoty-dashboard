@@ -4,7 +4,6 @@ from datetime import timedelta, timezone
 import pandas as pd
 import streamlit as st
 
-
 # =============================================================================
 # Page configuration
 # =============================================================================
@@ -34,6 +33,7 @@ LOCAL_TIMEZONE = timezone(timedelta(hours=TIMEZONE_OFFSET_HOURS))
 # =============================================================================
 # Helpers
 # =============================================================================
+
 
 def format_duration(duration_ms: int | float | None) -> str:
     """Convert milliseconds to M:SS format."""
@@ -73,6 +73,7 @@ st.title("🎵 SPOTY")
 # =============================================================================
 # Auto-refreshing content
 # =============================================================================
+
 
 @st.fragment(run_every="10s")
 def spotify_dashboard():
@@ -123,7 +124,8 @@ def spotify_dashboard():
     SELECT
         (SELECT COUNT(*) FROM tracks) AS total_tracks,
         (SELECT COUNT(*) FROM artists) AS total_artists,
-        (SELECT COUNT(*) FROM albums) AS total_albums
+        (SELECT COUNT(*) FROM albums) AS total_albums,
+        (SELECT COUNT(*) FROM liked_tracks) AS total_liked_tracks
     """
 
     summary_df = conn.query(
@@ -163,8 +165,7 @@ def spotify_dashboard():
 
         # Build a PostgreSQL array literal safely.
         artist_array = ",".join(
-            f"'{artist_id.replace(chr(39), chr(39) * 2)}'"
-            for artist_id in artist_ids
+            f"'{artist_id.replace(chr(39), chr(39) * 2)}'" for artist_id in artist_ids
         )
 
         artists_query = f"""
@@ -198,10 +199,7 @@ def spotify_dashboard():
             if not isinstance(ids, list):
                 return "-"
 
-            names = [
-                artist_names.get(artist_id, artist_id)
-                for artist_id in ids
-            ]
+            names = [artist_names.get(artist_id, artist_id) for artist_id in ids]
 
             return ", ".join(names)
 
@@ -220,17 +218,11 @@ def spotify_dashboard():
         utc=True,
     ).dt.tz_convert(LOCAL_TIMEZONE)
 
-    df["played_at"] = df["played_at"].dt.strftime(
-        "%d/%m/%Y %H:%M"
-    )
+    df["played_at"] = df["played_at"].dt.strftime("%d/%m/%Y %H:%M")
 
-    df["duration"] = df["duration_ms"].apply(
-        format_duration
-    )
+    df["duration"] = df["duration_ms"].apply(format_duration)
 
-    df["album_image"] = df["album_images"].apply(
-        get_image
-    )
+    df["album_image"] = df["album_images"].apply(get_image)
 
     # =========================================================================
     # Last played
@@ -250,21 +242,13 @@ def spotify_dashboard():
             )
 
     with col2:
-        st.markdown(
-            f"### {last['track_name']}"
-        )
+        st.markdown(f"### {last['track_name']}")
 
-        st.write(
-            f"👤 **{last['artist']}**"
-        )
+        st.write(f"👤 **{last['artist']}**")
 
-        st.write(
-            f"💿 **{last['album_name']}**"
-        )
+        st.write(f"💿 **{last['album_name']}**")
 
-        st.caption(
-            f"🕐 {last['played_at']}"
-        )
+        st.caption(f"🕐 {last['played_at']}")
 
     st.divider()
 
@@ -272,7 +256,7 @@ def spotify_dashboard():
     # Statistics
     # =========================================================================
 
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
 
     with col1:
         st.metric(
@@ -292,6 +276,12 @@ def spotify_dashboard():
             int(summary["total_albums"]),
         )
 
+    with col4:
+        st.metric(
+            "💜 Liked Songs",
+            int(summary["total_liked_tracks"]),
+        )
+
     st.divider()
 
     # =========================================================================
@@ -306,9 +296,9 @@ def spotify_dashboard():
             "track_name",
             "artist",
             "album_name",
-        # "duration",
-        # "track_popularity",
-        # "context_source",
+            # "duration",
+            # "track_popularity",
+            # "context_source",
         ]
     ].rename(
         columns={
@@ -316,9 +306,9 @@ def spotify_dashboard():
             "track_name": "🎵 Canción",
             "artist": "👤 Artista",
             "album_name": "💿 Álbum",
-        # "duration": "⏱️ Duración",
-        # "track_popularity": "🔥 Popularidad",
-        # "context_source": "📍 Fuente",
+            # "duration": "⏱️ Duración",
+            # "track_popularity": "🔥 Popularidad",
+            # "context_source": "📍 Fuente",
         }
     )
 
