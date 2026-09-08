@@ -83,11 +83,25 @@ def spotify_dashboard():
     # =========================================================================
 
     query = """
+    WITH track_stats AS (
+        SELECT
+            track_id,
+            COUNT(*) AS track_play_count,
+            CEIL(
+                100.0
+                * ROW_NUMBER() OVER (ORDER BY COUNT(*) DESC, track_id)
+                / NULLIF(COUNT(*) OVER (), 0)
+            )::int AS track_top_percent
+        FROM listening_events
+        GROUP BY track_id
+    )
     SELECT
         le.played_at,
         le.track_id,
         le.context_source,
         le.context_type,
+        ts.track_play_count,
+        ts.track_top_percent,
 
         t.name AS track_name,
         t.duration_ms,
@@ -99,6 +113,9 @@ def spotify_dashboard():
         a.release_year
 
     FROM listening_events AS le
+
+    LEFT JOIN track_stats AS ts
+        ON le.track_id = ts.track_id
 
     LEFT JOIN tracks AS t
         ON le.track_id = t.id
@@ -243,9 +260,18 @@ def spotify_dashboard():
             )
 
     with col2:
+        current_track_play_count = (
+            int(last["track_play_count"]) if pd.notna(last["track_play_count"]) else 0
+        )
+        current_track_top_percent = (
+            int(last["track_top_percent"])
+            if pd.notna(last["track_top_percent"])
+            else None
+        )
         st.markdown(f"### {last['track_name']}")
         st.write(f"👤 **{last['artist']}**")
         st.write(f"💿 **{last['album_name']}**")
+        st.write(f"🎧 **x{current_track_play_count} ({current_track_top_percent}%)**")
         st.write(f"🕐 **{last['played_at']}**")
 
     st.divider()
