@@ -248,7 +248,14 @@ def spotify_dashboard():
 
     last = df.iloc[0]
 
-    # st.divider()
+    current_track_play_count = (
+        int(last["track_play_count"]) if pd.notna(last["track_play_count"]) else 0
+    )
+    current_track_top_percent = (
+        int(last["track_top_percent"])
+        if pd.notna(last["track_top_percent"])
+        else None
+    )
 
     col1, col2 = st.columns([1, 4])
 
@@ -256,22 +263,16 @@ def spotify_dashboard():
         if last["album_image"]:
             st.image(
                 last["album_image"],
-                width=100,
+                use_container_width=True,
             )
 
     with col2:
-        current_track_play_count = (
-            int(last["track_play_count"]) if pd.notna(last["track_play_count"]) else 0
-        )
-        current_track_top_percent = (
-            int(last["track_top_percent"])
-            if pd.notna(last["track_top_percent"])
-            else None
-        )
         st.markdown(f"### {last['track_name']}")
         st.write(f"👤 **{last['artist']}**")
         st.write(f"💿 **{last['album_name']}**")
-        st.write(f"🎧 **x{current_track_play_count} ({current_track_top_percent}%)**")
+        st.write(
+            f"🎧 **x{current_track_play_count} ({current_track_top_percent if current_track_top_percent is not None else '-'}%)**"
+        )
         st.write(f"🕐 **{last['played_at']}**")
 
     st.divider()
