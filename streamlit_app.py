@@ -63,11 +63,11 @@ def get_image(images: str | None) -> str | None:
     return None
 
 
-# =============================================================================
-# Header
-# =============================================================================
+# # =============================================================================
+# # Header
+# # =============================================================================
 
-st.title("🎵 SPOTY")
+# st.title("🎵 SPOTY")
 
 
 # =============================================================================
@@ -125,7 +125,8 @@ def spotify_dashboard():
         (SELECT COUNT(*) FROM tracks) AS total_tracks,
         (SELECT COUNT(*) FROM artists) AS total_artists,
         (SELECT COUNT(*) FROM albums) AS total_albums,
-        (SELECT COUNT(*) FROM liked_tracks) AS total_liked_tracks
+        (SELECT COUNT(*) FROM liked_tracks) AS total_liked_tracks,
+        (SELECT COUNT(*) FROM listening_events) AS total_listening_events
     """
 
     summary_df = conn.query(
@@ -230,7 +231,7 @@ def spotify_dashboard():
 
     last = df.iloc[0]
 
-    st.divider()
+    # st.divider()
 
     col1, col2 = st.columns([1, 4])
 
@@ -243,12 +244,9 @@ def spotify_dashboard():
 
     with col2:
         st.markdown(f"### {last['track_name']}")
-
         st.write(f"👤 **{last['artist']}**")
-
         st.write(f"💿 **{last['album_name']}**")
-
-        st.caption(f"🕐 {last['played_at']}")
+        st.write(f"🕐 **{last['played_at']}**")
 
     st.divider()
 
@@ -256,7 +254,7 @@ def spotify_dashboard():
     # Statistics
     # =========================================================================
 
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4, col5 = st.columns(5)
 
     with col1:
         st.metric(
@@ -281,6 +279,14 @@ def spotify_dashboard():
             "💜 Liked Songs",
             int(summary["total_liked_tracks"]),
         )
+
+    with col5:
+        st.metric(
+            "🎧 Listening Events",
+            int(summary["total_listening_events"]),
+        )
+
+    row2_col1, row2_col2, row2_col3, row2_col4, row2_col5 = st.columns(5)
 
     st.divider()
 
