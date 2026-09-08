@@ -1,5 +1,6 @@
 import json
 import os
+import threading
 from datetime import timedelta, timezone
 
 import pandas as pd
@@ -35,6 +36,32 @@ def load_streamlit_secrets_to_env() -> None:
 
 
 register_listeningevents = None
+registration_in_progress = False
+
+
+def _run_registration_task() -> None:
+    global registration_in_progress
+
+    try:
+        register_function = get_register_listeningevents()
+        if register_function is None:
+            raise RuntimeError("No se pudo importar la función de registro de Spoty.")
+
+        register_function()
+    finally:
+        registration_in_progress = False
+
+
+def start_registration() -> None:
+    global registration_in_progress
+
+    if registration_in_progress:
+        return
+
+    registration_in_progress = True
+
+    thread = threading.Thread(target=_run_registration_task, daemon=True)
+    thread.start()
 
 
 def get_register_listeningevents():
@@ -121,38 +148,26 @@ def get_image(images: str | None) -> str | None:
 
 
 # =============================================================================
-# Dashboard actions
-# =============================================================================
-
-register_function = get_register_listeningevents()
-
-left_col, right_col = st.columns([1, 6])
-
-with left_col:
-    if register_function is None:
-        st.warning(
-            "No se pudo importar la función de registro de Spoty. "
-            "Asegúrate de tener instaladas las dependencias del repositorio y configuradas las variables de entorno de Spotify."
-        )
-    else:
-        if st.button(
-            "↻", key="register_listeningevents", help="Registrar escuchas recientes"
-        ):
-            try:
-                with st.spinner("Ejecutando registro de escuchas recientes..."):
-                    register_function()
-                st.toast("Registro completado.", icon="✅")
-            except Exception as exc:
-                st.error(f"Error al ejecutar el registro: {exc}")
-
-
-# =============================================================================
 # Auto-refreshing content
 # =============================================================================
 
 
 @st.fragment(run_every="10s")
 def spotify_dashboard():
+    register_function = get_register_listeningevents()
+
+    if register_function is None:
+        st.warning(
+            "No se pudo importar la función de registro de Spoty. "
+            "Asegúrate de tener instaladas las dependencias del repositorio y configuradas las variables de entorno de Spotify."
+        )
+    else:
+        st.button(
+            "↻",
+            key="register_listeningevents",
+            disabled=registration_in_progress,
+            on_click=start_registration,
+        )
 
     # =========================================================================
     # Database query
