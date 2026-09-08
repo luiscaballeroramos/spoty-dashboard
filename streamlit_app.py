@@ -1,8 +1,58 @@
 import json
+import os
 from datetime import timedelta, timezone
 
 import pandas as pd
 import streamlit as st
+
+
+def load_streamlit_secrets_to_env() -> None:
+    """Expose local Streamlit secrets as environment variables for the installed Spoty package."""
+    try:
+        secrets = st.secrets
+    except Exception:
+        return
+
+    spotify_keys = {
+        "SPOTIFY_CLIENT_ID": "SPOTIFY_CLIENT_ID",
+        "SPOTIFY_CLIENT_SECRET": "SPOTIFY_CLIENT_SECRET",
+        "SPOTIFY_REDIRECT_URI": "SPOTIFY_REDIRECT_URI",
+    }
+
+    for env_key, secret_key in spotify_keys.items():
+        value = secrets.get(secret_key)
+        if value is not None:
+            os.environ.setdefault(env_key, str(value))
+
+    neon_url = None
+    try:
+        neon_url = secrets["connections"]["neon"]["url"]
+    except Exception:
+        neon_url = None
+
+    if neon_url:
+        os.environ.setdefault("DATABASE_URL", str(neon_url))
+
+
+register_listeningevents = None
+
+
+def get_register_listeningevents():
+    global register_listeningevents
+
+    if register_listeningevents is not None:
+        return register_listeningevents
+
+    load_streamlit_secrets_to_env()
+
+    try:
+        from _registration import register_listeningevents as imported_function
+    except Exception:
+        return None
+
+    register_listeningevents = imported_function
+    return register_listeningevents
+
 
 # =============================================================================
 # Page configuration
@@ -68,6 +118,32 @@ def get_image(images: str | None) -> str | None:
 # # =============================================================================
 
 # st.title("🎵 SPOTY")
+
+
+# =============================================================================
+# Dashboard actions
+# =============================================================================
+
+register_function = get_register_listeningevents()
+
+left_col, right_col = st.columns([1, 6])
+
+with left_col:
+    if register_function is None:
+        st.warning(
+            "No se pudo importar la función de registro de Spoty. "
+            "Asegúrate de tener instaladas las dependencias del repositorio y configuradas las variables de entorno de Spotify."
+        )
+    else:
+        if st.button(
+            "↻", key="register_listeningevents", help="Registrar escuchas recientes"
+        ):
+            try:
+                with st.spinner("Ejecutando registro de escuchas recientes..."):
+                    register_function()
+                st.toast("Registro completado.", icon="✅")
+            except Exception as exc:
+                st.error(f"Error al ejecutar el registro: {exc}")
 
 
 # =============================================================================
@@ -252,9 +328,7 @@ def spotify_dashboard():
         int(last["track_play_count"]) if pd.notna(last["track_play_count"]) else 0
     )
     current_track_top_percent = (
-        int(last["track_top_percent"])
-        if pd.notna(last["track_top_percent"])
-        else None
+        int(last["track_top_percent"]) if pd.notna(last["track_top_percent"]) else None
     )
 
     col1, col2 = st.columns([1, 4])
